@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>喵喵專註清單 - ADHD 友善貓貓任務管理器</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖標 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti 彩帶特效 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts Inter & Rounded Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        catPrimary: '#4A90E2',
+                        catLightBg: '#EBF3FA',
+                        catCardBg: '#FFFFFF',
+                        catHighlight: '#D6E4F0',
+                        catAccent: '#7CAADC',
+                        catNavy: '#1E293B',
+                        catSoftRed: '#F87171',
+                        catSoftYellow: '#FBBF24',
+                        catSoftGreen: '#34D399',
+                    },
+                    fontFamily: {
+                        sans: ['"Zen Maru Gothic"', 'sans-serif'],
+                        rounded: ['"Fredoka"', 'cursive', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #EBF3FA;
+            color: #1E293B;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            user-select: none;
+        }
+
+        /* 貓耳朵 Header 造型 */
+        .cat-ear-container {
+            position: relative;
+        }
+        .cat-ear-left, .cat-ear-right {
+            position: absolute;
+            top: -24px;
+            width: 45px;
+            height: 45px;
+            background-color: #4A90E2;
+            border-radius: 12px 30px 0 0;
+            z-index: 0;
+        }
+        .cat-ear-left {
+            left: 25px;
+            transform: rotate(-12deg);
+        }
+        .cat-ear-right {
+            right: 25px;
+            transform: rotate(12deg) scaleX(-1);
+        }
+        .cat-ear-inner-left, .cat-ear-inner-right {
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            width: 25px;
+            height: 28px;
+            background-color: #D6E4F0;
+            border-radius: 8px 20px 0 0;
+        }
+
+        /* 貓腳印 Checkbox 樣式 */
+        .paw-checkbox {
+            appearance: none;
+            width: 32px;
+            height: 32px;
+            border: 2px solid #94A3B8;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            background-color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .paw-checkbox:hover {
+            border-color: #4A90E2;
+            transform: scale(1.08);
+        }
+        .paw-checkbox:checked {
+            background-color: #4A90E2;
+            border-color: #4A90E2;
+        }
+        .paw-checkbox:checked::after {
+            content: "\f1b0"; /* FontAwesome paw icon code */
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            color: white;
+            font-size: 18px;
+        }
+
+        /* 自訂滾動條 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #EBF3FA;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #B4C6E7;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4A90E2;
+        }
+
+        /* 微浮雕與陰影 */
+        .soft-shadow {
+            box-shadow: 0 10px 25px -5px rgba(74, 144, 226, 0.1), 0 8px 10px -6px rgba(74, 144, 226, 0.05);
+        }
+        
+        /* 動態貓貓踱步進度條動畫 */
+        @keyframes catWalk {
+            0% { transform: translateY(0px) scaleX(1); }
+            50% { transform: translateY(-4px) scaleX(1); }
+            100% { transform: translateY(0px) scaleX(1); }
+        }
+        .cat-walker {
+            animation: catWalk 0.6s infinite ease-in-out;
+            transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 彈窗背景淡入 */
+        .modal-backdrop {
+            background-color: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-12 pt-6 px-4 md:px-8 max-w-4xl mx-auto flex flex-col justify-between">
+
+    <!-- 頂部應用聲明與控制區 -->
+    <div>
+        <!-- 標頭與功能切換區 -->
+        <header class="cat-ear-container mb-6 mt-4">
+            <div class="cat-ear-left"><div class="cat-ear-inner-left"></div></div>
+            <div class="cat-ear-right"><div class="cat-ear-inner-right"></div></div>
+            
+            <div class="relative z-10 bg-white rounded-3xl p-5 md:p-6 soft-shadow border border-blue-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-100 text-catPrimary p-3.5 rounded-2xl text-2xl flex items-center justify-center shadow-inner">
+                        <i class="fa-solid fa-cat"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-catNavy tracking-wide flex items-center gap-2">
+                            喵喵專註清單
+                            <span class="text-xs bg-blue-100 text-catPrimary px-2.5 py-1 rounded-full font-normal">ADHD 友善</span>
+                        </h1>
+                        <p class="text-xs text-slate-500 mt-0.5">拆解小任務，陪伴你一步步輕松完成！🐾</p>
+                    </div>
+                </div>
+
+                <!-- 控制按鈕組：歷史紀錄、聲音、數據備份 -->
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button id="soundToggleBtn" onclick="toggleSound()" class="p-2.5 px-3 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-catPrimary rounded-2xl transition flex items-center gap-1.5 text-sm font-medium" title="開啟/靜音音效">
+                        <i id="soundIcon" class="fa-solid fa-volume-high text-catPrimary"></i>
+                        <span id="soundText" class="hidden md:inline">音效開</span>
+                    </button>
+                    
+                    <button onclick="openHistoryModal()" class="p-2.5 px-3 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-catPrimary rounded-2xl transition flex items-center gap-1.5 text-sm font-medium">
+                        <i class="fa-solid fa-clock-rotate-left text-catPrimary"></i>
+                        <span>歷史紀錄</span>
+                    </button>
+
+                    <button onclick="openBackupModal()" class="p-2.5 px-3 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-catPrimary rounded-2xl transition flex items-center gap-1.5 text-sm font-medium">
+                        <i class="fa-solid fa-floppy-disk text-catPrimary"></i>
+                        <span class="hidden md:inline">備份</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 貓貓完成進度條卡片 -->
+        <section class="bg-white rounded-3xl p-5 mb-6 soft-shadow border border-blue-100">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-bold text-catNavy flex items-center gap-2">
+                    <i class="fa-solid fa-paw text-catPrimary"></i> 任務專註進度
+                </span>
+                <span id="progressStatsText" class="text-xs font-bold text-catPrimary bg-blue-50 px-3 py-1 rounded-full">
+                    已完成 0 / 0 個任務 (0%)
+                </span>
+            </div>
+            
+            <!-- 進度條軌道與貓貓 yürütme -->
+            <div class="relative w-full h-5 bg-slate-100 rounded-full overflow-visible mt-6 mb-2">
+                <div id="progressBarFill" class="h-full bg-gradient-to-r from-blue-300 to-catPrimary rounded-full transition-all duration-500 ease-out" style="width: 0%;"></div>
+                
+                <!-- 走動的貓貓 Icon -->
+                <div id="catWalker" class="cat-walker absolute -top-6 transform -translate-x-1/2 text-2xl transition-all" style="left: 0%;">
+                    🐱
+                </div>
+            </div>
+            <p id="encouragingQuote" class="text-xs text-center text-slate-500 mt-3 font-medium">
+                「只要踏出第一步，貓貓就為你喝彩喵～🐾」
+            </p>
+        </section>
+
+        <!-- 任務輸入區塊 (減輕阻力：簡單直覺) -->
+        <section class="bg-white rounded-3xl p-5 mb-6 soft-shadow border border-blue-100">
+            <h2 class="text-base font-bold text-catNavy mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-plus-circle text-catPrimary"></i> 新增任務
+            </h2>
+            <form id="taskForm" onsubmit="handleAddTask(event)" class="space-y-3">
+                <div class="flex flex-col md:flex-row gap-3">
+                    <input type="text" id="taskTitle" placeholder="例如：喝一杯水、回覆一封信件..." required
+                        class="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-catPrimary focus:bg-white text-sm transition">
+                    
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <!-- 預估截止日期與時間 -->
+                        <div class="flex gap-2 flex-1">
+                            <input type="date" id="taskDeadlineDate" 
+                                class="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-catPrimary focus:bg-white text-xs text-slate-700 transition" title="截止日期">
+                            <input type="time" id="taskDeadlineTime" 
+                                class="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-catPrimary focus:bg-white text-xs text-slate-700 transition" title="截止時間">
+                        </div>
+
+                        <!-- 優先級 -->
+                        <select id="taskPriority" class="px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-catPrimary text-xs text-slate-700 transition">
+                            <option value="low">低優先度 🟢</option>
+                            <option value="medium" selected>中優先度 🟡</option>
+                            <option value="high">高優先度 🔴</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3 bg-catPrimary hover:bg-blue-600 text-white font-bold rounded-2xl transition duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.99]">
+                    <i class="fa-solid fa-paw"></i> 喵～新增任務！
+                </button>
+            </form>
+        </section>
+
+        <!-- 任務分類與清單區塊 -->
+        <main class="bg-white rounded-3xl p-5 soft-shadow border border-blue-100 min-h-[300px]">
+            <!-- 篩選標籤 -->
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 flex-wrap gap-2">
+                <div class="flex gap-2">
+                    <button id="filterAll" onclick="setFilter('all')" class="filter-btn active-filter px-3.5 py-1.5 rounded-xl text-xs font-bold bg-catPrimary text-white transition">
+                        全部
+                    </button>
+                    <button id="filterPending" onclick="setFilter('pending')" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+                        進行中
+                    </button>
+                    <button id="filterCompleted" onclick="setFilter('completed')" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+                        已完成
+                    </button>
+                </div>
+                <span id="taskCountBadge" class="text-xs text-slate-400 font-medium">0 個任務</span>
+            </div>
+
+            <!-- 任務列表清單 -->
+            <div id="taskList" class="space-y-3">
+                <!-- 動態注入任務卡片 -->
+            </div>
+
+            <!-- 空狀態提示 -->
+            <div id="emptyState" class="hidden text-center py-12">
+                <div class="text-5xl mb-3">🐾</div>
+                <p class="text-slate-400 font-medium text-sm">目前沒有任務喵～</p>
+                <p class="text-xs text-slate-400 mt-1">享用一杯茶或新增一個小目標吧！</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- 頁尾 -->
+    <footer class="text-center text-xs text-slate-400 mt-8">
+        喵喵專註清單 &copy; 2026 | ADHD 友善 & 減壓視覺設計 🐾
+    </footer>
+
+    <!-- Modal 1: 慶祝彈窗 (多巴胺獎勵) -->
+    <div id="celebrationModal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full text-center soft-shadow transform transition-all border-2 border-blue-200 relative overflow-hidden">
+            <div class="text-6xl mb-3 animate-bounce">😸</div>
+            <h3 class="text-2xl font-bold text-catNavy mb-2">太棒了！太有成就感了！</h3>
+            <p id="celebrationTaskName" class="text-sm font-bold text-catPrimary bg-blue-50 py-2 px-3 rounded-xl mb-3 truncate"></p>
+            <p id="celebrationQuote" class="text-xs text-slate-600 mb-6 font-medium">貓貓伸了個懶腰，為你的專註鼓掌！🐾</p>
+            
+            <button onclick="closeCelebrationModal()" class="w-full py-3 bg-catPrimary hover:bg-blue-600 text-white font-bold rounded-2xl shadow-md transition">
+                繼續加油喵！✨
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 2: 完成紀錄與歷史歷史 Log -->
+    <div id="historyModal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-lg w-full soft-shadow border border-blue-100 flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
+                <h3 class="text-lg font-bold text-catNavy flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-catPrimary"></i> 完成歷史紀錄
+                </h3>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- 日期篩選與統計 -->
+            <div class="flex items-center justify-between mb-4 bg-slate-50 p-3 rounded-2xl">
+                <input type="date" id="historyDateFilter" onchange="renderHistoryList()" class="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700">
+                <span id="historyDayCount" class="text-xs font-bold text-catPrimary bg-blue-100 px-3 py-1.5 rounded-xl">
+                    該日完成：0 個
+                </span>
+            </div>
+
+            <!-- 歷史列表內容 -->
+            <div id="historyList" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                <!-- 動態注入歷史 -->
+            </div>
+
+            <div class="pt-4 mt-2 border-t border-slate-100 flex justify-between items-center">
+                <button onclick="clearHistoryLog()" class="text-xs text-catSoftRed hover:underline">
+                    <i class="fa-solid fa-trash-can"></i> 清除歷史紀錄
+                </button>
+                <button onclick="closeHistoryModal()" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: 數據備份與匯入/匯出 -->
+    <div id="backupModal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop hidden p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full soft-shadow border border-blue-100">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
+                <h3 class="text-lg font-bold text-catNavy flex items-center gap-2">
+                    <i class="fa-solid fa-database text-catPrimary"></i> 數據備份與同步
+                </h3>
+                <button onclick="closeBackupModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+                您的資料預設自動保存在瀏覽器中。您隨時可以匯出 JSON 備份檔案，並備份至 GitHub 倉庫或在其他裝置上匯入。
+            </p>
+
+            <div class="space-y-3">
+                <button onclick="exportDataJSON()" class="w-full py-3 bg-blue-50 hover:bg-blue-100 text-catPrimary font-bold rounded-2xl transition border border-blue-200 flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-download"></i> 匯出 JSON 備份檔
+                </button>
+
+                <label class="w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold rounded-2xl transition border border-slate-200 flex items-center justify-center gap-2 text-sm cursor-pointer">
+                    <i class="fa-solid fa-upload"></i> 匯入 JSON 備份檔
+                    <input type="file" id="importFileInput" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                </label>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between">
+                <button onclick="resetDemoData()" class="text-xs text-slate-400 hover:text-catSoftRed">
+                    重置為預設示範資料
+                </button>
+                <button onclick="closeBackupModal()" class="px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl">
+                    完成
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 全域邏輯與音效合成 -->
+    <script>
+        // === 資料狀態變數 ===
+        let tasks = [];
+        let historyLogs = [];
+        let currentFilter = 'all';
+        let isSoundEnabled = true;
+
+        // 可愛貓貓讚賞語錄 (正向多巴胺回饋)
+        const catQuotes = [
+            "貓貓伸了個懶腰，為你的專註鼓掌！🐾",
+            "喵喵！你剛剛完成了一件非常棒的事！✨",
+            "踩著小貓掌，你又跨出了一大步！🐾",
+            "獲得貓貓勳章一枚！繼續保持輕鬆的心情～🐟",
+            "哇～完成任務的你簡直比喵咪還閃耀！🌟",
+            "給自己摸摸頭，你做得真的很不錯！🐾"
+        ];
+
+        // Web Audio API 聲效合成器 (零外部音效檔依賴)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playMeowSound() {
+            if (!isSoundEnabled) return;
+            try {
+                if (!audioCtx) {
+                    audioCtx = new AudioContext();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                
+                // 模擬貓咪喵喵聲 (頻率快速上揚再平緩下降)
+                const now = audioCtx.currentTime;
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.3);
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } catch (e) {
+                console.log("Audio play suppressed:", e);
+            }
+        }
+
+        function toggleSound() {
+            isSoundEnabled = !isSoundEnabled;
+            const soundIcon = document.getElementById('soundIcon');
+            const soundText = document.getElementById('soundText');
+
+            if (isSoundEnabled) {
+                soundIcon.className = "fa-solid fa-volume-high text-catPrimary";
+                soundText.textContent = "音效開";
+                playMeowSound();
+            } else {
+                soundIcon.className = "fa-solid fa-volume-xmark text-slate-400";
+                soundText.textContent = "靜音";
+            }
+        }
+
+        // === 初始化與 localStorage ===
+        window.onload = function() {
+            loadLocalData();
+            // 設定歷史日期篩選預設為今天
+            document.getElementById('historyDateFilter').value = getTodayDateString();
+            renderTasks();
+            updateProgressBar();
+        };
+
+        function getTodayDateString() {
+            const today = new Date();
+            return today.toISOString().split('T')[0];
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('catTasks', JSON.stringify(tasks));
+            localStorage.setItem('catHistoryLogs', JSON.stringify(historyLogs));
+        }
+
+        function loadLocalData() {
+            const storedTasks = localStorage.getItem('catTasks');
+            const storedLogs = localStorage.getItem('catHistoryLogs');
+
+            if (storedTasks) {
+                tasks = JSON.parse(storedTasks);
+            } else {
+                // 初始化示範資料
+                tasks = [
+                    { id: '1', title: '喝一杯溫水 🥛', date: getTodayDateString(), time: '09:00', priority: 'low', completed: false, createdAt: new Date().toISOString() },
+                    { id: '2', title: '整理工作桌（只需整理 3 分鐘）🧹', date: getTodayDateString(), time: '10:30', priority: 'medium', completed: false, createdAt: new Date().toISOString() },
+                    { id: '3', title: '完成專案小需求 💻', date: '', time: '14:00', priority: 'high', completed: false, createdAt: new Date().toISOString() }
+                ];
+            }
+
+            if (storedLogs) {
+                historyLogs = JSON.parse(storedLogs);
+            }
+        }
+
+        // === 任務操作邏輯 ===
+        function handleAddTask(e) {
+            e.preventDefault();
+            const titleInput = document.getElementById('taskTitle');
+            const dateInput = document.getElementById('taskDeadlineDate');
+            const timeInput = document.getElementById('taskDeadlineTime');
+            const priorityInput = document.getElementById('taskPriority');
+
+            if (!titleInput.value.trim()) return;
+
+            const newTask = {
+                id: Date.now().toString(),
+                title: titleInput.value.trim(),
+                date: dateInput.value || '',
+                time: timeInput.value || '',
+                priority: priorityInput.value,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+
+            tasks.unshift(newTask);
+            saveLocalData();
+            renderTasks();
+            updateProgressBar();
+
+            titleInput.value = '';
+            dateInput.value = '';
+            timeInput.value = '';
+            priorityInput.value = 'medium';
+        }
+
+        function toggleTaskComplete(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            task.completed = !task.completed;
+
+            if (task.completed) {
+                const nowStr = new Date().toLocaleString('zh-TW', { hour12: false });
+                task.completedAt = nowStr;
+
+                // 新增歷史 Log
+                historyLogs.unshift({
+                    id: Date.now().toString(),
+                    taskId: task.id,
+                    title: task.title,
+                    completedAt: nowStr,
+                    dateDateOnly: getTodayDateString()
+                });
+
+                // 觸發音效、彩帶與慶祝 Modal
+                playMeowSound();
+                triggerConfetti();
+                showCelebrationModal(task.title);
+            } else {
+                // 若取消完成，移除歷史對應 Log
+                historyLogs = historyLogs.filter(log => log.taskId !== id);
+            }
+
+            saveLocalData();
+            renderTasks();
+            updateProgressBar();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveLocalData();
+            renderTasks();
+            updateProgressBar();
+        }
+
+        // === 渲染與 UI ===
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('bg-catPrimary', 'text-white');
+                btn.classList.add('bg-slate-100', 'text-slate-600');
+            });
+
+            const activeBtn = document.getElementById(`filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-slate-100', 'text-slate-600');
+                activeBtn.classList.add('bg-catPrimary', 'text-white');
+            }
+
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            const emptyState = document.getElementById('emptyState');
+            taskList.innerHTML = '';
+
+            let filteredTasks = tasks.filter(task => {
+                if (currentFilter === 'pending') return !task.completed;
+                if (currentFilter === 'completed') return task.completed;
+                return true;
+            });
+
+            document.getElementById('taskCountBadge').textContent = `${filteredTasks.length} 個任務`;
+
+            if (filteredTasks.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filteredTasks.forEach(task => {
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 ${
+                    task.completed 
+                        ? 'bg-slate-50 border-slate-200 opacity-70' 
+                        : 'bg-white border-blue-100 hover:border-blue-300 hover:shadow-sm'
+                }`;
+
+                // 優先級標籤顏色
+                let priorityBadge = '';
+                if (task.priority === 'high') {
+                    priorityBadge = '<span class="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">高</span>';
+                } else if (task.priority === 'medium') {
+                    priorityBadge = '<span class="text-[10px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-bold">中</span>';
+                } else {
+                    priorityBadge = '<span class="text-[10px] bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full font-bold">低</span>';
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                        <input type="checkbox" 
+                            class="paw-checkbox" 
+                            ${task.completed ? 'checked' : ''} 
+                            onchange="toggleTaskComplete('${task.id}')">
+                        
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-sm font-bold ${task.completed ? 'line-through text-slate-400' : 'text-catNavy'} truncate">
+                                    ${escapeHtml(task.title)}
+                                </span>
+                                ${priorityBadge}
+                            </div>
+                            
+                            ${task.date || task.time ? `
+                                <div class="text-xs ${task.completed ? 'text-slate-400' : 'text-catPrimary'} mt-0.5 flex items-center gap-1 font-medium bg-blue-50/50 inline-block px-1.5 py-0.5 rounded">
+                                    <i class="fa-regular fa-clock"></i> 
+                                    ${task.date ? task.date : ''} ${task.time ? task.time : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <button onclick="deleteTask('${task.id}')" class="text-slate-300 hover:text-catSoftRed p-2 transition">
+                        <i class="fa-solid fa-trash-can text-sm"></i>
+                    </button>
+                `;
+
+                taskList.appendChild(card);
+            });
+        }
+
+        function updateProgressBar() {
+            const total = tasks.length;
+            const completedCount = tasks.filter(t => t.completed).length;
+            const percentage = total === 0 ? 0 : Math.round((completedCount / total) * 100);
+
+            const progressBarFill = document.getElementById('progressBarFill');
+            const catWalker = document.getElementById('catWalker');
+            const progressStatsText = document.getElementById('progressStatsText');
+
+            progressBarFill.style.width = `${percentage}%`;
+            catWalker.style.left = `${percentage}%`;
+            progressStatsText.textContent = `已完成 ${completedCount} / ${total} 個任務 (${percentage}%)`;
+
+            const quoteElem = document.getElementById('encouragingQuote');
+            if (percentage === 100 && total > 0) {
+                quoteElem.textContent = "🎉 太精彩了！今日任務全部搞定！貓貓送你大滿貫！🐾";
+            } else if (percentage >= 50) {
+                quoteElem.textContent = "🐾 進度過半囉！你專註的樣子真好看～";
+            } else {
+                quoteElem.textContent = "「只要踏出第一步，貓貓就為你喝彩喵～🐾」";
+            }
+        }
+
+        // === 慶祝 Modal & 彩帶特效 ===
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 40,
+                    spread: 60,
+                    origin: { y: 0.7 },
+                    colors: ['#4A90E2', '#7CAADC', '#FBBF24', '#34D399']
+                });
+            }
+        }
+
+        function showCelebrationModal(taskTitle) {
+            document.getElementById('celebrationTaskName').textContent = taskTitle;
+            const randomQuote = catQuotes[Math.floor(Math.random() * catQuotes.length)];
+            document.getElementById('celebrationQuote').textContent = randomQuote;
+            document.getElementById('celebrationCelebrationModal') || document.getElementById('celebrationModal').classList.remove('hidden');
+        }
+
+        function closeCelebrationModal() {
+            document.getElementById('celebrationModal').classList.add('hidden');
+        }
+
+        // === 歷史紀錄 Modal ===
+        function openHistoryModal() {
+            document.getElementById('historyModal').classList.remove('hidden');
+            renderHistoryList();
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function renderHistoryList() {
+            const selectedDate = document.getElementById('historyDateFilter').value;
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = '';
+
+            const logsForDate = historyLogs.filter(log => log.dateDateOnly === selectedDate);
+            document.getElementById('historyDayCount').textContent = `該日完成：${logsForDate.length} 個`;
+
+            if (logsForDate.length === 0) {
+                historyList.innerHTML = `
+                    <div class="text-center py-8 text-slate-400 text-xs">
+                        這一天沒有完成紀錄喵～🐾
+                    </div>
+                `;
+                return;
+            }
+
+            logsForDate.forEach(log => {
+                const item = document.createElement('div');
+                item.className = "p-3 bg-blue-50/50 rounded-2xl border border-blue-100 flex justify-between items-center text-xs";
+                item.innerHTML = `
+                    <div class="flex items-center gap-2 min-w-0">
+                        <i class="fa-solid fa-circle-check text-catPrimary"></i>
+                        <span class="font-bold text-catNavy truncate">${escapeHtml(log.title)}</span>
+                    </div>
+                    <span class="text-slate-400 font-mono text-[11px] whitespace-nowrap">${log.completedAt.split(' ')[1] || log.completedAt}</span>
+                `;
+                historyList.appendChild(item);
+            });
+        }
+
+        function clearHistoryLog() {
+            if (confirm("確定要清除所有完成歷史紀錄嗎？")) {
+                historyLogs = [];
+                saveLocalData();
+                renderHistoryList();
+            }
+        }
+
+        // === 數據備份與 JSON 匯入 / 匯出 ===
+        function openBackupModal() {
+            document.getElementById('backupModal').classList.remove('hidden');
+        }
+
+        function closeBackupModal() {
+            document.getElementById('backupModal').classList.add('hidden');
+        }
+
+        function exportDataJSON() {
+            const dataToExport = {
+                app: "CatTaskManager",
+                version: "1.0",
+                exportedAt: new Date().toISOString(),
+                tasks: tasks,
+                historyLogs: historyLogs
+            };
+
+            const jsonStr = JSON.stringify(dataToExport, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cat_tasks_backup_${getTodayDateString()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData.tasks && Array.isArray(importedData.tasks)) {
+                        tasks = importedData.tasks;
+                        historyLogs = importedData.historyLogs || [];
+                        saveLocalData();
+                        renderTasks();
+                        updateProgressBar();
+                        alert("🎉 資料成功匯入！貓貓已為您更新備份！");
+                        closeBackupModal();
+                    } else {
+                        alert("⚠️ 匯入失敗：檔案格式不正確。");
+                    }
+                } catch (err) {
+                    alert("⚠️ 無法解析 JSON 檔案。");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetDemoData() {
+            if (confirm("確定要重置為預設範例資料嗎？（現有資料將會被覆蓋）")) {
+                localStorage.removeItem('catTasks');
+                localStorage.removeItem('catHistoryLogs');
+                loadLocalData();
+                renderTasks();
+                updateProgressBar();
+                closeBackupModal();
+            }
+        }
+
+        // 工具函式：防範 XSS
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "& Archbishop;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
